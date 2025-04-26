@@ -1,0 +1,85 @@
+---
+title: "Downloading Data"
+author: "Hachem Brahimi"
+date: "2025-04-21"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(nasapower)
+library(tidyverse)
+```
+
+```{r}
+lon_vals <- seq(-8.60, 12.00, by = 0.2)     
+lat_vals <- seq(18.08, 37.00, by = 0.2)     
+
+grid_points <- expand_grid(lon = lon_vals, lat = lat_vals)
+```
+
+```{r}
+set.seed(123)
+grid <- grid_points %>%
+  sample_n(size = 2000) %>%
+  mutate(row_id = row_number())
+
+``` 
+
+```{r}
+fetch_hourly_point <- function(lon, lat, pars, start_date, end_date, community = "ag", counter = NULL, total = NULL) {
+  if (!is.null(counter) && !is.null(total)) {
+    message(sprintf("[%d/%d] Fetching [%s, %s]...", counter, total, lon, lat))
+  } else {
+    message(sprintf("Fetching [%s, %s]...", lon, lat))
+  }
+
+  tryCatch({
+    df <- get_power(
+      community = community,
+      lonlat = c(lon, lat),
+      pars = pars,
+      dates = c(start_date, end_date),
+      temporal_api = "hourly"
+    )
+    df$LON <- lon
+    df$LAT <- lat
+    return(df)
+  }, error = function(e) {
+    warning(sprintf("Failed at [%s, %s]: %s", lon, lat, e$message))
+    return(NULL)
+  })
+}
+
+start_date <- "2024-12-20"
+end_date <- "2024-12-31"
+params <- c("RH2M", "T2M", "PRECTOTCORR")
+total_points <- nrow(grid)
+
+# Fetch and bind rows directly into a single dataframe
+hourly_data_df <- pmap_dfr(grid, function(lon, lat, row_id) {
+  fetch_hourly_point(
+    lon, lat,
+    pars = params,
+    start_date = start_date,
+    end_date = end_date,
+    counter = row_id,
+    total = total_points
+  )
+})
+
+```
+
+```{r}
+hourly_data_df
+```
+
+```{r}
+write_csv(hourly_data_df, "hourly_data.csv")
+```
+
+
+
