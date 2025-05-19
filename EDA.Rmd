@@ -1,0 +1,379 @@
+---
+title: "EDA"
+author: "Hachem Brahimi"
+date: "2025-05-14"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(leaflet)
+library(lubridate)
+library(rnaturalearth)
+```
+
+```{r}
+df <- read_csv("data_final.csv")
+```
+
+```{r}
+df<- df %>% 
+  mutate(times=make_datetime(YEAR, MO, DY, HR))
+```
+
+```{r}
+df_1 <- df %>% 
+  group_by(LON,LAT) %>% 
+  mutate(mean_T2M= mean(T2M),
+         mean_WS2M= mean(WS2M),
+         mean_RH2M= mean(RH2M),
+         mean_PRECTOTCORR= mean(PRECTOTCORR),
+         max_T2M=max(T2M),
+         max_WS2M= max(WS2M),
+         max_RH2M= max(RH2M),
+         max_PRECTOTCORR= max(PRECTOTCORR),
+         min_T2M=min(T2M),
+         min_WS2M= min(WS2M),
+         min_RH2M= min(RH2M),
+         min_PRECTOTCORR= min(PRECTOTCORR)) %>% 
+  distinct(LON,LAT,mean_T2M,mean_WS2M,mean_RH2M,mean_PRECTOTCORR) 
+```
+
+```{r}
+df %>% glimpse()
+```
+
+```{r}
+df %>% group_by(LON,LAT,MO) %>% 
+  summarise(mean=mean(RH2M))
+```
+
+```{r}
+df_2 <- df %>% 
+  group_by(LON,LAT,MO) %>% 
+  mutate(mean_T2M= mean(T2M),
+         mean_WS2M= mean(WS2M),
+         mean_RH2M= mean(RH2M),
+         mean_PRECTOTCORR= mean(PRECTOTCORR),
+         max_T2M=max(T2M),
+         max_WS2M= max(WS2M),
+         max_RH2M= max(RH2M),
+         max_PRECTOTCORR= max(PRECTOTCORR),
+         min_T2M=min(T2M),
+         min_WS2M= min(WS2M),
+         min_RH2M= min(RH2M),
+         min_PRECTOTCORR= min(PRECTOTCORR)) %>% 
+  distinct(LON,LAT,mean_T2M,mean_WS2M,mean_RH2M,mean_PRECTOTCORR) 
+```
+
+```{r}
+algeria_map <- ne_states(country = "Algeria", returnclass = "sf")
+
+map_merged <- algeria_map %>%
+  left_join(df_suka, by = c("latitude" = "LAT"))
+map_merged2<- algeria_map %>%
+  left_join(df_suka2, by = c("latitude" = "LAT"))
+
+```
+
+## Visualizations
+
+```{r}
+map_merged %>% 
+  ggplot() +
+  geom_sf(aes(fill = mean_T2M), color = "black") +
+  scale_fill_gradient(
+    low = "#fee5d9", high = "#a50f15", 
+    name = "Avg Temperature (°C)"  
+  ) +
+  labs(
+    title = "Algeria Map – Mean Temperature (2024)"
+  ) +
+  theme_void() +
+  theme(
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right", 
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+  )
+```
+
+```{r}
+map_merged %>% 
+  ggplot() +
+  geom_sf(aes(fill = mean_PRECTOTCORR), color = "black") +
+  scale_fill_gradient(
+    low = "#f7fcfd", high = "#00441b", 
+    name = "Avg Precipitation (mm)" 
+  ) +
+  labs(
+    title = "Algeria Map – Mean Precipitation (2024)"
+  ) +
+  theme_void() +
+  theme(
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right", 
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+  )
+```
+
+```{r}
+map_merged %>% 
+  ggplot() +
+  geom_sf(aes(fill = mean_WS2M), color = "black") +
+  scale_fill_gradient(
+    low = "#deebf7", high = "#08306b", 
+    name = "Wind Speed (m/s)"  
+  ) +
+  labs(
+    title = "Algeria Map – Mean Wind Speed (2024)"
+  ) +
+  theme_void() +
+  theme(
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right", 
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+  )
+```
+
+```{r}
+map_merged %>% 
+  ggplot() +
+  geom_sf(aes(fill = mean_RH2M), color = "black") +
+  scale_fill_gradient(
+    low = "#edf8fb", high = "#006d2c", 
+    name = "Humidity (%)"  
+  ) +
+  labs(
+    title = "Algeria Map – Mean Humidity (2024)"
+  ) +
+  theme_void() +
+  theme(
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right", 
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+  )
+```
+
+## correaltion and multivariate analysis 
+
+```{r}
+# Select only the relevant numeric columns
+weather_vars <- df %>% 
+  select(T2M, RH2M, WS2M, PRECTOTCORR)
+
+# Compute correlation matrix
+cor_matrix <- cor(weather_vars, use = "complete.obs")
+
+```
+
+```{r}
+cor_matrix %>% corrplot::corrplot(
+  method = "color",
+  type = "upper",
+  tl.col = "black",
+  tl.srt = 45,
+  addCoef.col = "black", # Add correlation coefficients
+  number.cex = 0.7, # Adjust size of numbers
+  title = "Correlation Matrix of Weather Variables",
+  mar = c(0,0,1,0) # Adjust margins
+)
+```
+
+```{r}
+ggplot(df, aes(x = RH2M, y = T2M)) +
+  geom_point(alpha = 0.6,col="#a50f15") +
+  labs(
+    title = "Humidity vs Temperature",
+    x = "Relative Humidity at 2m (%)",
+    y = "Temperature at 2m (°C)"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+ggplot(df, aes(x = PRECTOTCORR, y = T2M)) +
+  geom_point(alpha = 0.6, color = "darkblue") +
+  labs(
+    title = "Precipitation vs Temperature",
+    x = "Percipitation (mm)",
+    y = "Temperature at 2m (°C)"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+ggplot(df, aes(x = PRECTOTCORR, y = WS2M)) +
+  geom_point(alpha = 0.6, color = "darkblue") +
+  labs(
+    title = "Wind Speed vs Precipitation",
+    x = "Percipitation (mm)",
+    y = "Wind Speed at 2m (m/s)"
+  ) +
+  theme_minimal()
+```
+
+
+## Temporel analysis
+
+
+```{r}
+map_merged2 %>% glimpse()
+```
+
+```{r}
+map_merged2 %>%
+  ggplot() +
+  geom_sf(aes(fill = mean_T2M), color = "black") +
+  scale_fill_gradient(
+    low = "#fee5d9", high = "#a50f15", 
+    name = "Avg Temperature (°C)"  
+  ) +
+  labs(
+    title = "Algeria Map – Mean Temperature (2024)"
+  ) +
+  theme_void() +
+  theme(
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right", 
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+  )+
+  facet_wrap(~MO)
+ 
+```
+
+```{r}
+map_merged2 %>%
+  ggplot() +
+  geom_sf(aes(fill = mean_PRECTOTCORR), color = "black") +
+  scale_fill_gradient(
+    low = "#f7fcfd", high = "#00441b", 
+    name = "Avg Percipitation (mm)"  
+  ) +
+  labs(
+    title = "Algeria Map – Mean Percipitation (2024)"
+  ) +
+  theme_void() +
+  theme(
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right", 
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+  )+
+  facet_wrap(~MO)
+```
+
+```{r}
+map_merged2 %>%
+  ggplot() +
+  geom_sf(aes(fill = mean_WS2M), color = "black") +
+  scale_fill_gradient(
+    low = "#deebf7", high = "#08306b", 
+    name = "Wind Speed (m/s)"  
+  ) +
+  labs(
+    title = "Algeria Map – Mean Wind Speed (2024)"
+  ) +
+  theme_void() +
+  theme(
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right", 
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+  )+
+  facet_wrap(~MO)
+```
+
+```{r}
+map_merged2 %>%
+  ggplot() +
+  geom_sf(aes(fill = mean_RH2M), color = "black") +
+  scale_fill_gradient(
+    low = "#edf8fb", high = "#006d2c", 
+    name = "Avg Humidity (%)"  
+  ) +
+  labs(
+    title = "Algeria Map – Mean Humidity (2024)"
+  ) +
+  theme_void() +
+  theme(
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right", 
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold")
+  )+
+  facet_wrap(~MO)
+```
+
+
+```{r}
+my_pal <- c(
+  "#1f77b4", 
+  "#aec7e8", 
+  "#2ca02c",  
+  "#98df8a",  
+  "#ff7f0e",  
+  "#ffbb78",  
+  "#d62728",  
+  "#ff9896", 
+  "#9467bd",  
+  "#c5b0d5",  
+  "#8c564b",
+  "#c49c94"   
+)
+```
+
+```{r}
+df %>% 
+  group_by(MO) %>%
+  summarise(mean_RH2M=mean(RH2M)) %>%
+  mutate(MO=as_factor(MO)) %>% 
+  ggplot(aes(x=MO,y=mean_RH2M,fill=MO))+
+  geom_col()+
+  labs(
+    title = "Algeria Map – Mean Humidity (2024)",
+    x = "Month",
+    y = "Humidity (%)"
+  ) +
+  scale_fill_manual(values  =my_pal ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+### Moran I 
+
+```{r}
+
+
+
+
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+

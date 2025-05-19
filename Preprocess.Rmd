@@ -13,19 +13,20 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lubridate)
 ```
+
 ```{r}
-data <- read_csv("hourly_data.csv")
-data
+data <- read_csv("data_final.csv")
+data %>% glimpse()
 ```
 ```{r}
 
-normalize <- function(x) (x - min(x, na.rm = TRUE)) / 
-                      (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+#normalize <- function(x) (x - min(x, na.rm = TRUE)) / 
+ #                     (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+
 groups <- data %>%
-  mutate(times=make_datetime(YEAR, MO, DY, HR)) %>% 
+  mutate(times= make_datetime(YEAR,MO,DY,HR)) %>%
   group_by(LON, LAT) %>% 
-  select(LON, LAT, times, RH2M, T2M, PRECTOTCORR) %>% 
-  #mutate(across(c(RH2M, T2M, PRECTOTCORR), normalize)) %>%
+  select(LON, LAT, times, RH2M, T2M, PRECTOTCORR,WS2M) %>% 
   group_split()
 
 
@@ -69,7 +70,7 @@ for (g_idx in seq_along(groups)) {
   n_windows <- length(start_index)
   data_matrix <- matrix(
     nrow = n_windows,
-    ncol = (max_length * 3) + (target_length * 3) + 2 + 1  # 3 vars * time steps + targets + coords
+    ncol = (max_length * 4) + (target_length * 2) + 2 + 1  # 3 vars * time steps + targets + coords
   )
   
   
@@ -79,11 +80,11 @@ for (g_idx in seq_along(groups)) {
     end_target <- end_input + target_length
     
     
-    temporal_part <- g[start:end_input, c("RH2M", "T2M", "PRECTOTCORR")]
+    temporal_part <- g[start:end_input, c("RH2M", "T2M", "PRECTOTCORR", "WS2M")]
     flattened_part <- as.vector(t(temporal_part))  
     
     
-    target_part <- g[(end_input + 1):end_target, c("RH2M", "T2M", "PRECTOTCORR")]
+    target_part <- g[(end_input + 1):end_target, c( "T2M", "PRECTOTCORR")]
     flattened_target <- as.vector(t(target_part))
     
     
@@ -112,22 +113,54 @@ for (g_idx in seq_along(groups)) {
 
 # Combine all groups 
 final_data_matrix <- do.call(rbind, all_groups_data)
-final_data_matrix <- as_tibble(final_data_matrix)
+#final_data_matrix <- as_tibble(final_data_matrix)
 
-colnames(final_data_matrix) <- c("RH2M-t3", "T2M-t3", "PRECTOTCORR-t3", 
-                                 "RH2M-t2", "T2M-t2","PRECTOTCORR-t2",
-                                 "RH2M-t1", "T2M-t1","PRECTOTCORR-t1",
-                                 "RH2M-t", "T2M-t","PRECTOTCORR-t",
-                                 "LON", "LAT", "time")
+# Set column names
+
 
 ```
 ```{r}
+final_data_matrix <- as_tibble(final_data_matrix)
 final_data_matrix
+```
+
+```{r}
+data %>% head()
+```
+
+```{r}
+final_data_matrix <- final_data_matrix %>%
+  rename_with(~ paste0("V", seq_along(.)), everything()) %>%
+  rename(
+    RH2M_1 = V1,
+    T2M_1 = V2,
+    PRECTOTCORR_1 = V3,
+    RH2M_2 = V4,
+    T2M_2 = V5,
+    PRECTOTCORR_2 = V6,
+    RH2M_3 = V7,
+    T2M_3 = V8,
+    PRECTOTCORR_3 = V9,
+    WS2M_1 = V10,
+    WS2M_2 = V11,
+    WS2M_3 = V12,
+    T2M_target_1 = V13,
+    PRECTOTCORR_target_1 = V14,
+    LON = V15,
+    LAT = V16,
+    timestamp = V17
+  )
+```
+```{r}
+```
+
+
+```{r}
 ```
 
 
 ```{r}
 # Save the final data matrix to a CSV file
-write_csv(final_data_matrix, "Prepared_data.csv")
+write_csv(final_data_matrix, "prepared_data_vf.csv")
 ```
 
